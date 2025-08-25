@@ -1,116 +1,108 @@
-# Customer Name Reconciliation
+# Customer Name Matching & Reconciliation
 
-This Python tool reconciles customer name records from three different sources using advanced fuzzy matching logic. It handles typos, punctuation variations, abbreviations, and other common data quality issues while grouping duplicates within and across files.
+This project provides a **data reconciliation pipeline** for matching customer records across multiple business systems (**Towbook**, **Fullbay**, and **QuickBooks**).
+It standardizes, cleans, and matches customer names using a mix of **fuzzy string similarity** and **rule-based filters**, producing a unified view of customer records.
 
-## 🔍 Features
-
-* **Advanced name matching**:
-  - Handles punctuation variations (A&N vs A N, A.P.R. vs APR)
-  - Manages abbreviations (LLC vs Llc, & vs AND)
-  - Detects typos and minor spelling differences (ALBERTSON vs ALBERTSONS)
-  - Preserves business entity distinctions (won't match "3 ARROWS" with "ARROW SERVICE")
-
-* **Duplicate handling**: Groups duplicate names within each file before cross-file matching
-* **Performance optimized**: Uses signature-based indexing for fast matching on large datasets
-* **Automatic file splitting**: Splits large outputs into manageable files
+---
 
 ## 📂 Project Structure
 
 ```
-├── name_matcher.py          # Main program entry point
-├── name_utils.py           # Name processing utilities
-├── matching_engine.py      # Core matching logic
-├── file_splitter.py        # Output file management
-├── constants.py            # Ignore words and geographic terms
-├── test_matching.py        # Test script for matching logic
-└── README.md              # This file
+.
+├── customer_reconciliation.csv   # Final reconciled output across Towbook, Fullbay, QuickBooks
+├── tb_customer_names.csv         # Customer names from Towbook
+├── fb_customer_names.csv         # Customer names from Fullbay
+├── qb_customer_names.xlsx        # Customer data from QuickBooks (names, contacts, balances)
+│
+├── name_utils.py                 # Utilities for name cleaning & normalization
+├── constants.py                  # Stopwords, regex, thresholds, config values
+├── matching_engine.py            # Core fuzzy + rule-based matching engine
+├── name_matcher.py               # Driver script that runs the full pipeline
+├── file_splitter.py              # Splits large input files into smaller chunks
+├── test_matching.py              # Unit tests for matching and normalization
 ```
 
-## 📥 Input Files
+---
 
-* `tb_customer_names.csv`: Contains column `account_name`
-* `fb_customer_names.csv`: Contains column `customer`  
-* `qb_customer_names.xlsx`: Excel file with "Active" sheet containing "Customer" column
+## 🔑 Key Features
 
-## 📤 Output
+* **Normalization**: Cleans and standardizes business names (removes punctuation, suffixes like LLC/Inc, handles acronyms).
+* **Rule-Based Matching**: Blocks false matches (e.g., differing websites).
+* **Fuzzy Matching**: Uses similarity scores to find near-duplicates across datasets.
+* **Multi-System Reconciliation**: Aligns **Towbook (TB)**, **Fullbay (FB)**, and **QuickBooks (QB)** records into one consolidated view.
+* **Scalability**: File splitting to handle large customer lists without memory issues.
+* **Testing**: Includes test harness for validating normalization and matching logic.
 
-* `customer_reconciliation.csv` (or multiple parts if >10,000 rows)
-  - `standardized_name`: Best formatted version of the customer name
-  - `tb_names`: All matching names from TB (semicolon-separated)
-  - `fb_names`: All matching names from FB (semicolon-separated)
-  - `qb_names`: All matching names from QB (semicolon-separated)
+---
 
-### Example Output
+## ⚙️ How It Works
 
-| standardized_name | tb_names | fb_names | qb_names |
-|------------------|----------|----------|----------|
-| A&N Towing And Transport | A N Towing And Transport; A N Towing And Transport Llc | A&N TOWING AND TRANSPORT | A&N TOWING AND TRANSPORT; A&N TOWING AND TRANSPORT LLC |
-| Albertsons Companies - Shaws | Albertsons Companies - Shaws | | Albertons Companies - Shaws; ALBERTSON COMPANIES; Albertsons Companies - Shaws |
+1. **Load Input Data**
+
+   * Towbook names (`tb_customer_names.csv`)
+   * Fullbay names (`fb_customer_names.csv`)
+   * QuickBooks exports (`qb_customer_names.xlsx`)
+
+2. **Preprocess & Normalize**
+
+   * `name_utils.py` cleans names (case, punctuation, suffixes).
+   * `constants.py` applies regex rules and stopword removal.
+
+3. **Match Records**
+
+   * `matching_engine.py` applies fuzzy similarity + rules.
+   * Produces confidence scores for each candidate match.
+
+4. **Reconcile Customers**
+
+   * `name_matcher.py` orchestrates the pipeline.
+   * Writes unified matches to `customer_reconciliation.csv`.
+
+5. **Validate**
+
+   * `test_matching.py` ensures correctness and consistency.
+
+---
 
 ## 🚀 Usage
 
-1. Ensure input files are in the working directory
-2. Run the main script:
-   ```bash
-   python name_matcher.py
-   ```
-3. Check output file(s) in the same directory
+### Run the Full Pipeline
 
-### Testing the Matching Logic
+```bash
+python name_matcher.py
+```
 
-To verify the matching algorithm works correctly:
+### Run Tests
+
 ```bash
 python test_matching.py
 ```
 
-## 📦 Dependencies
+---
 
-```bash
-pip install pandas tqdm openpyxl
-```
+## 📊 Output
 
-## 🔧 Configuration
+The output file `customer_reconciliation.csv` includes:
 
-### Adjusting Match Sensitivity
+| standardized\_name             | tb\_names (Towbook)            | fb\_names (Fullbay)          | qb\_names (QuickBooks)                  |
+| ------------------------------ | ------------------------------ | ---------------------------- | --------------------------------------- |
+| \*cash/private Retail Customer | \*Cash/Private Retail Customer | NaN                          | NaN                                     |
+| 1 Source Solutions Logistics   | NaN                            | 1 Source Solutions Logistics | 1 Source Solutions Logistics; wrecker 1 |
+| 116 Industries                 | NaN                            | 116 INDUSTRIES               | 116 INDUSTRIES                          |
 
-In `matching_engine.py`, you can adjust:
-- `min_token_similarity`: Minimum similarity score for tokens (default: 0.85)
-- `min_match_ratio`: Minimum ratio of matching tokens (default: 0.7)
+---
 
-### Customizing Ignore Words
+## 🛠️ Tech Stack
 
-Edit `constants.py` to modify:
-- `IGNORE_WORDS`: Common business terms to ignore
-- `GEO_TERMS`: Geographic terms to optionally strip
+* **Python 3.x**
+* **Pandas** (CSV/XLSX handling)
+* **FuzzyWuzzy / RapidFuzz** (fuzzy string matching)
+* **Regex** (cleaning & normalization)
 
-### File Splitting
+---
 
-In `name_matcher.py`, adjust `max_rows_per_file` (default: 10,000) to control output file sizes.
+## 📌 Notes
 
-## 🎯 Matching Algorithm
-
-The tool uses a multi-stage matching approach:
-
-1. **Normalization**: Standardizes punctuation, spacing, and common abbreviations
-2. **Tokenization**: Breaks names into meaningful words/tokens
-3. **Signature Generation**: Creates multiple signatures for fuzzy matching
-4. **Token Matching**: Uses similarity scoring to match tokens with minor variations
-5. **Decision Logic**: Applies rules based on match quality and token overlap
-
-## 📊 Performance
-
-- Processes ~5,000 customers in under 30 seconds
-- Memory efficient with streaming processing
-- Automatic progress bars for long operations
-
-## 🐛 Troubleshooting
-
-If matches seem incorrect:
-1. Run `test_matching.py` to verify basic logic
-2. Check if names need to be added to `IGNORE_WORDS`
-3. Adjust similarity thresholds if too strict/loose
-4. Review the normalized output in debug mode
-
-## 📝 License
-
-This tool is provided as-is for internal use.
+* QuickBooks export should be in `.xlsx` format.
+* Towbook and Fullbay inputs should be `.csv` with customer names.
+* Thresholds and stopword lists can be customized in `constants.py`.
